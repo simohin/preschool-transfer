@@ -17,7 +17,12 @@ repositories {
     mavenCentral()
 }
 
+tasks.jar {
+    enabled = false
+}
+
 val springCloudVersion = "2022.0.2"
+val tgBotApiVersion = "7.0.1"
 val openFeignVersion = "4.0.2"
 dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core")
@@ -25,6 +30,7 @@ dependencies {
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("org.springframework.cloud:spring-cloud-starter-openfeign:$openFeignVersion")
     implementation("org.springframework.cloud:spring-cloud-dependencies:$springCloudVersion")
+    implementation("dev.inmo:tgbotapi:$tgBotApiVersion")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     testImplementation("org.springframework.boot:spring-boot-starter-test")

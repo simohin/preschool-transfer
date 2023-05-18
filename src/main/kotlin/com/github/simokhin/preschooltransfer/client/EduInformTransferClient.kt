@@ -4,6 +4,7 @@ import com.github.simokhin.preschooltransfer.dto.FindPupilRequest
 import com.github.simokhin.preschooltransfer.dto.FindPupilResponse
 import com.github.simokhin.preschooltransfer.dto.FreePlaceRequest
 import com.github.simokhin.preschooltransfer.dto.FreePlaceResponseItem
+import com.github.simokhin.preschooltransfer.model.AdministrativeOrganization
 import com.github.simokhin.preschooltransfer.model.Preschool
 import org.springframework.cloud.openfeign.FeignClient
 import org.springframework.web.bind.annotation.RequestMapping
@@ -19,5 +20,8 @@ interface EduInformTransferClient {
     fun getFreePlace(request: FreePlaceRequest): Set<FreePlaceResponseItem>
 
     @RequestMapping(method = [RequestMethod.GET], value = ["/preschools"])
-    fun getPreschools(): Set<Preschool>
+    fun getPreschools(): List<Preschool>
+
+    @RequestMapping(method = [RequestMethod.GET], value = ["/administrativeOrganizations"])
+    fun getAdministrativeOrganizations(): List<AdministrativeOrganization>
 }

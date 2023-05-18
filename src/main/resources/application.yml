@@ -1,0 +1,4 @@
+tg.bot.token: ${TG_BOT_TOKEN}
+admin:
+  pupil:
+    id: ${ADMIN_PUPIL_ID}
