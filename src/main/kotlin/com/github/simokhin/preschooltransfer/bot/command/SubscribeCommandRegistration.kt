@@ -16,6 +16,8 @@ import dev.inmo.tgbotapi.requests.send.SendTextMessage
 import dev.inmo.tgbotapi.types.IdChatIdentifier
 import dev.inmo.tgbotapi.types.buttons.InlineKeyboardButtons.CallbackDataInlineKeyboardButton
 import dev.inmo.tgbotapi.types.buttons.InlineKeyboardMarkup
+import dev.inmo.tgbotapi.types.message.abstracts.CommonMessage
+import dev.inmo.tgbotapi.types.message.content.TextContent
 import dev.inmo.tgbotapi.types.queries.callback.DataCallbackQuery
 import dev.inmo.tgbotapi.utils.matrix
 import kotlinx.coroutines.flow.Flow
@@ -42,72 +44,80 @@ class SubscribeCommandRegistration(
 
     override suspend fun register(behaviourContext: BehaviourContext) {
         behaviourContext.onCommand(command) {
-            val chatId = it.chat.id
-
-            val organizations = administrativeOrganizationsService.getAll()
-                .associateBy { organization -> organization.id }
-
-            val preschools = preschoolsService.getAll()
-                .associateBy { preschool -> preschool.id }
-
-            val currentAdministrativeOrganization =
-                getAdministrativeOrganization("Выберите текущий район:", chatId, organizations)
-
-            val currentPreschool =
-                getPreschool("Выберите текущий садик", chatId, preschools, currentAdministrativeOrganization)
-                    .map { query -> preschools[UUID.fromString(query.data)] }
-                    .first()!!
-
-            val lastName = waitText(
-                SendTextMessage(chatId, "Фамилия:")
-            ).first().text
-
-            val firstName = waitText(
-                SendTextMessage(chatId, "Имя:")
-            ).first().text
-
-            val surName = waitText(
-                SendTextMessage(chatId, "Отчество:")
-            ).first().text
-
-            val birthDate = waitText(
-                SendTextMessage(chatId, "Дата рождения в формате 31.12.1999")
-            ).first().text
-
-            val pupilResponse = pupilService.find(
-                lastName,
-                firstName,
-                surName,
-                LocalDate.parse(birthDate, dateTimeFormatter),
-                currentPreschool.id
-            ) ?: throw RuntimeException()
-
-            val nextAdministrativeOrganization =
-                getAdministrativeOrganization("Выберите новый район:", chatId, organizations)
-
-            var done = false
-            val nextPreschools = mutableSetOf<Preschool>()
-
-            while (nextPreschools.size < 10 && !done) {
-                val doneText = "Готово"
-                val data = getPreschool(
-                    "Выберите новый садик (до 10 штук) или нажмите \"$doneText\"",
-                    chatId,
-                    preschools,
-                    nextAdministrativeOrganization,
-                    doneText
-                ).first().data
-
-                done = data == doneText
-                if (!done) {
-                    nextPreschools.add(preschools[UUID.fromString(data)]!!)
-                }
+            try {
+                onCommand(it)
+            } catch (e: Exception) {
+                execute(SendTextMessage(it.chat.id, "Не удалось: ${e.localizedMessage}"))
+                log.error(e.localizedMessage, e)
             }
-
-            subscriptionService.subscribe(chatId.chatId, pupilResponse.id, nextPreschools.map(Preschool::id).toSet())
-
-            log.info(nextPreschools.map { preschool -> preschool.shortCaption }.toString())
         }
+    }
+
+    private suspend fun BehaviourContext.onCommand(it: CommonMessage<TextContent>) {
+        val chatId = it.chat.id
+
+        val organizations = administrativeOrganizationsService.getAll()
+            .associateBy { organization -> organization.id }
+
+        val preschools = preschoolsService.getAll()
+            .associateBy { preschool -> preschool.id }
+
+        val currentAdministrativeOrganization =
+            getAdministrativeOrganization("Выберите текущий район:", chatId, organizations)
+
+        val currentPreschool =
+            getPreschool("Выберите текущий садик", chatId, preschools, currentAdministrativeOrganization)
+                .map { query -> preschools[UUID.fromString(query.data)] }
+                .first()!!
+
+        val lastName = waitText(
+            SendTextMessage(chatId, "Фамилия:")
+        ).first().text
+
+        val firstName = waitText(
+            SendTextMessage(chatId, "Имя:")
+        ).first().text
+
+        val surName = waitText(
+            SendTextMessage(chatId, "Отчество:")
+        ).first().text
+
+        val birthDate = waitText(
+            SendTextMessage(chatId, "Дата рождения в формате 31.12.1999")
+        ).first().text
+
+        val pupilResponse = pupilService.find(
+            lastName,
+            firstName,
+            surName,
+            LocalDate.parse(birthDate, dateTimeFormatter),
+            currentPreschool.id
+        ) ?: throw RuntimeException()
+
+        val nextAdministrativeOrganization =
+            getAdministrativeOrganization("Выберите новый район:", chatId, organizations)
+
+        var done = false
+        val nextPreschools = mutableSetOf<Preschool>()
+
+        while (nextPreschools.size < 10 && !done) {
+            val doneText = "Готово"
+            val data = getPreschool(
+                "Выберите новый садик (до 10 штук) или нажмите \"$doneText\"",
+                chatId,
+                preschools,
+                nextAdministrativeOrganization,
+                doneText
+            ).first().data
+
+            done = data == doneText
+            if (!done) {
+                nextPreschools.add(preschools[UUID.fromString(data)]!!)
+            }
+        }
+
+        subscriptionService.subscribe(chatId.chatId, pupilResponse.id, nextPreschools.map(Preschool::id).toSet())
+        execute(SendTextMessage(chatId, "Успешно"))
     }
 
     private suspend fun BehaviourContext.getAdministrativeOrganization(
