@@ -37,22 +37,23 @@ class SendFreePlaceInfoTask(
                 .associateBy { preschool -> preschool.id }
 
             val freePlaces = (freePlaceService.getAll(defaultPupilId) ?: return@runBlocking)
-                .values
-                .groupBy {
-                    preschools[it.id]
-                }.map { entry ->
-                    administrativeOrganizationsService.find(entry.key!!.administrativeOrganizationId) to entry.value
-                        .joinToString("\n") {
-                            "${preschools[it.id]!!.shortCaption}: ${it.availableGroupIds.size}"
-                        }
-                }.toMap()
+                .map { entry ->
+                    val administrativeOrganization = preschools[entry.key]!!
+                        .administrativeOrganizationId
+                        .let { administrativeOrganizationsService.find(it) }
+                    administrativeOrganization to "${preschools[entry.value.id]!!.shortCaption}: ${entry.value.availableGroupIds.size}"
+                }
+                .groupBy { it.first }
+                .map {
+                    it.key to it.value.map { pair -> pair.second }.joinToString { "\n" }
+                }
 
             chatIds.forEach { chatId ->
                 freePlaces.forEach {
                     bot.execute(
                         SendTextMessage(
                             ChatId(chatId),
-                            "Найдены свободные места в районе ${it.key.territoryCaption}:\n${it.value}"
+                            "Найдены свободные места в районе ${it.first.territoryCaption}:\n${it.second}"
                         )
                     )
                 }
