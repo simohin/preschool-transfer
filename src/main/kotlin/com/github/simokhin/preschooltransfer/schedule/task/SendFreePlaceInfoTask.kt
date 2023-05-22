@@ -1,7 +1,7 @@
 package com.github.simokhin.preschooltransfer.schedule.task
 
 import com.github.simokhin.preschooltransfer.config.TgBot
-import com.github.simokhin.preschooltransfer.schedule.ScheduledTask
+import com.github.simokhin.preschooltransfer.service.AdministrativeOrganizationsService
 import com.github.simokhin.preschooltransfer.service.FreePlaceService
 import com.github.simokhin.preschooltransfer.service.PreschoolsService
 import dev.inmo.tgbotapi.requests.send.SendTextMessage
@@ -9,9 +9,8 @@ import dev.inmo.tgbotapi.types.ChatId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
-import java.time.Duration
-import java.time.OffsetDateTime
 import java.util.UUID
 
 @Component
@@ -20,26 +19,43 @@ class SendFreePlaceInfoTask(
     private val chatIds: List<Long>,
     @Value("\${admin.pupil.id:}")
     private val defaultPupilId: UUID,
-    @Value("\${scheduled.task.rate.free.place.info:PT24H}")
-    private val rate: Duration,
     private val bot: TgBot,
     private val freePlaceService: FreePlaceService,
     private val preschoolsService: PreschoolsService,
-) : ScheduledTask {
-    override var lastRun: OffsetDateTime = OffsetDateTime.MIN
-    override fun needExecute() = OffsetDateTime.now().isAfter(lastRun.plus(rate))
+    private val administrativeOrganizationsService: AdministrativeOrganizationsService,
+) {
 
-    override fun execute() {
+    init {
+        execute()
+    }
+
+    @Scheduled(cron = "\${scheduled.task.rate.free.place.info:0 11 * * * *}")
+    final fun execute() {
         runBlocking(Dispatchers.IO) {
 
             val preschools = preschoolsService.getAll()
                 .associateBy { preschool -> preschool.id }
-            val freePlaces = (freePlaceService.getAll(defaultPupilId) ?: return@runBlocking).map {
-                "${preschools[it.value.id]!!.shortCaption}: ${it.value.availableGroupIds.size}"
-            }.joinToString("\n")
+
+            val freePlaces = (freePlaceService.getAll(defaultPupilId) ?: return@runBlocking)
+                .values
+                .groupBy {
+                    preschools[it.id]
+                }.map { entry ->
+                    administrativeOrganizationsService.find(entry.key!!.administrativeOrganizationId) to entry.value
+                        .joinToString("\n") {
+                            "${preschools[it.id]!!.shortCaption}: ${it.availableGroupIds.size}"
+                        }
+                }.toMap()
 
             chatIds.forEach { chatId ->
-                bot.execute(SendTextMessage(ChatId(chatId), "Найдены свободные места:\n$freePlaces"))
+                freePlaces.forEach {
+                    bot.execute(
+                        SendTextMessage(
+                            ChatId(chatId),
+                            "Найдены свободные места в районе ${it.key.territoryCaption}:\n${it.value}"
+                        )
+                    )
+                }
             }
         }
     }
