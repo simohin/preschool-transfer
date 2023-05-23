@@ -39,7 +39,7 @@ class FreePlaceService(
                     }.reduce { acc, map -> acc + map }
             }
         } catch (e: Exception) {
-            return@with null
+            return@with emptyMap()
         }
     }
 

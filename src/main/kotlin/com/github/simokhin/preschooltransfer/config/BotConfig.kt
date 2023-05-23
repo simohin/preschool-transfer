@@ -24,7 +24,6 @@ class BotConfig(
     private val token: String,
 ) {
 
-    private val scope: TgBotCoroutineScope = CoroutineScope(Dispatchers.Default)
     private val bot: TgBot = telegramBot(token)
     private val handler = CoroutineExceptionHandler { _, e -> log.error("Error handled", e) }
 
@@ -33,7 +32,7 @@ class BotConfig(
     }
 
     @PostConstruct
-    fun init() = scope.async(handler) {
+    fun init() = CoroutineScope(Dispatchers.IO).async(handler) {
         bot.buildBehaviourWithLongPolling {
             commands.forEach { command ->
                 command.register(this)
@@ -43,7 +42,4 @@ class BotConfig(
 
     @Bean
     fun bot() = bot
-
-    @Bean
-    fun scope() = scope
 }

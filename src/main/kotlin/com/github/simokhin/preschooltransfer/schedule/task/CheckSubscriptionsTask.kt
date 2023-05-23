@@ -1,8 +1,11 @@
 package com.github.simokhin.preschooltransfer.schedule.task
 
+import com.github.simokhin.preschooltransfer.config.TgBot
 import com.github.simokhin.preschooltransfer.service.FreePlaceService
-import com.github.simokhin.preschooltransfer.service.NotificationService
+import com.github.simokhin.preschooltransfer.service.NotificationBuilderService
 import com.github.simokhin.preschooltransfer.service.SubscriptionService
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 
@@ -10,7 +13,8 @@ import org.springframework.stereotype.Component
 class CheckSubscriptionsTask(
     private val subscriptionService: SubscriptionService,
     private val freePlaceService: FreePlaceService,
-    private val notificationService: NotificationService,
+    private val notificationBuilderService: NotificationBuilderService,
+    private val bot: TgBot,
 ) {
 
     @Scheduled(cron = "\${scheduled.task.rate.check.subscription:0 */3 * * * *}")
@@ -30,7 +34,9 @@ class CheckSubscriptionsTask(
                 subscription to availablePreschoolIds
             } else null
         }.forEach {
-            notificationService.notificate(it.first.chatId, it.second)
+            runBlocking(Dispatchers.IO) {
+                bot.execute(notificationBuilderService.buildNotificationMessage(it.first.chatId, it.second))
+            }
         }
     }
 }
