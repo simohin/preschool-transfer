@@ -15,10 +15,11 @@ class AdministrativeOrganizationsService(
 ) {
 
     @Cacheable(FIND_METHOD_CACHE_NAME, key = "id")
-    fun find(id: UUID) = getAll().first { it.id == id }
+// fixme always returns null
+    fun find(id: UUID) = getAll()[id]
 
     @Cacheable(GET_ALL_METHOD_CACHE_NAME)
-    fun getAll() = client.getAdministrativeOrganizations()
+    fun getAll() = client.getAdministrativeOrganizations().associateBy { it.id }
 
     @CacheEvict(allEntries = true, value = [GET_ALL_METHOD_CACHE_NAME])
     fun refresh() {

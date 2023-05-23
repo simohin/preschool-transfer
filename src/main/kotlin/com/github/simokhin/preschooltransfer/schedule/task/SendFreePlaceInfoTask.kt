@@ -6,7 +6,7 @@ import com.github.simokhin.preschooltransfer.service.FreePlaceService
 import com.github.simokhin.preschooltransfer.service.PreschoolsService
 import dev.inmo.tgbotapi.requests.send.SendTextMessage
 import dev.inmo.tgbotapi.types.ChatId
-import kotlinx.coroutines.Dispatchers
+import jakarta.annotation.PostConstruct
 import kotlinx.coroutines.runBlocking
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.scheduling.annotation.Scheduled
@@ -25,35 +25,34 @@ class SendFreePlaceInfoTask(
     private val administrativeOrganizationsService: AdministrativeOrganizationsService,
 ) {
 
-    init {
-        execute()
-    }
+    @PostConstruct
+    fun postConstruct() = execute()
 
     @Scheduled(cron = "\${scheduled.task.rate.free.place.info:0 11 * * * *}")
     final fun execute() {
-        runBlocking(Dispatchers.IO) {
+        runBlocking {
 
             val preschools = preschoolsService.getAll()
                 .associateBy { preschool -> preschool.id }
 
-            val freePlaces = (freePlaceService.getAll(defaultPupilId) ?: return@runBlocking)
-                .map { entry ->
-                    val administrativeOrganization = preschools[entry.key]!!
-                        .administrativeOrganizationId
-                        .let { administrativeOrganizationsService.find(it) }
-                    administrativeOrganization to "${preschools[entry.value.id]!!.shortCaption}: ${entry.value.availableGroupIds.size}"
-                }
-                .groupBy { it.first }
-                .map {
-                    it.key to it.value.map { pair -> pair.second }.joinToString { "\n" }
+            val freePlaces = freePlaceService.getAll(defaultPupilId) ?: return@runBlocking
+            val administrativeOrganizations = administrativeOrganizationsService.getAll()
+
+            val administrativeOrganizationToFreePlaces = freePlaces.map {
+                preschools[it.key]!! to it.value.availableGroupIds.size
+            }
+                .groupBy { it.first.administrativeOrganizationId }
+                .mapKeys { administrativeOrganizations[it.key]!!.territoryCaption }
+                .mapValues {
+                    it.value.joinToString("\n") { pair -> "${pair.first.shortCaption}: ${pair.second}" }
                 }
 
             chatIds.forEach { chatId ->
-                freePlaces.forEach {
+                administrativeOrganizationToFreePlaces.forEach {
                     bot.execute(
                         SendTextMessage(
                             ChatId(chatId),
-                            "Найдены свободные места в районе ${it.first.territoryCaption}:\n${it.second}"
+                            "Найдены свободные места в районе ${it.key}:\n${it.value}"
                         )
                     )
                 }

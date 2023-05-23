@@ -57,7 +57,6 @@ class SubscribeCommandRegistration(
         val chatId = it.chat.id
 
         val organizations = administrativeOrganizationsService.getAll()
-            .associateBy { organization -> organization.id }
 
         val preschools = preschoolsService.getAll()
             .associateBy { preschool -> preschool.id }
