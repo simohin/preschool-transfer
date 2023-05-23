@@ -27,9 +27,13 @@ class NotificationBuilderService(
         return SendTextMessage(ChatId(chatId), "Найдены свободные места:\n$freePlaces")
     }
 
-    fun buildFreePlaceInfoMessages(chatId: Long) = buildFreePlaceInfoMessages(setOf(chatId))
+    fun buildFreePlaceInfoMessages(chatId: Long, administrativeOrganizationId: UUID? = null) =
+        buildFreePlaceInfoMessages(setOf(chatId), administrativeOrganizationId)
 
-    fun buildFreePlaceInfoMessages(chatIds: Collection<Long>): List<SendTextMessage> {
+    fun buildFreePlaceInfoMessages(
+        chatIds: Collection<Long>,
+        administrativeOrganizationId: UUID? = null,
+    ): List<SendTextMessage> {
         val preschools = preschoolsService.getAll()
             .associateBy { preschool -> preschool.id }
 
@@ -40,6 +44,9 @@ class NotificationBuilderService(
             preschools[it.key]!! to it.value.availableGroupIds.size
         }
             .groupBy { it.first.administrativeOrganizationId }
+            .filter {
+                administrativeOrganizationId == null || administrativeOrganizationId == it.key
+            }
             .mapKeys { administrativeOrganizations[it.key]!!.territoryCaption }
             .mapValues {
                 it.value.joinToString("\n") { pair -> "${pair.first.shortCaption}: колличество групп - ${pair.second}" }

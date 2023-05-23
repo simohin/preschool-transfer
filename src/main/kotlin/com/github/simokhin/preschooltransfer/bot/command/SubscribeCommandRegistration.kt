@@ -2,25 +2,19 @@ package com.github.simokhin.preschooltransfer.bot.command
 
 import com.github.simokhin.preschooltransfer.bot.BotRegistration
 import com.github.simokhin.preschooltransfer.bot.TgApiBotCommand
-import com.github.simokhin.preschooltransfer.model.AdministrativeOrganization
 import com.github.simokhin.preschooltransfer.model.Preschool
 import com.github.simokhin.preschooltransfer.service.AdministrativeOrganizationsService
 import com.github.simokhin.preschooltransfer.service.PreschoolsService
 import com.github.simokhin.preschooltransfer.service.PupilService
 import com.github.simokhin.preschooltransfer.service.SubscriptionService
+import com.github.simokhin.preschooltransfer.util.getAdministrativeOrganization
+import com.github.simokhin.preschooltransfer.util.getPreschool
 import dev.inmo.tgbotapi.extensions.behaviour_builder.BehaviourContext
-import dev.inmo.tgbotapi.extensions.behaviour_builder.expectations.waitDataCallbackQuery
 import dev.inmo.tgbotapi.extensions.behaviour_builder.expectations.waitText
 import dev.inmo.tgbotapi.extensions.behaviour_builder.triggers_handling.onCommand
 import dev.inmo.tgbotapi.requests.send.SendTextMessage
-import dev.inmo.tgbotapi.types.IdChatIdentifier
-import dev.inmo.tgbotapi.types.buttons.InlineKeyboardButtons.CallbackDataInlineKeyboardButton
-import dev.inmo.tgbotapi.types.buttons.InlineKeyboardMarkup
 import dev.inmo.tgbotapi.types.message.abstracts.CommonMessage
 import dev.inmo.tgbotapi.types.message.content.TextContent
-import dev.inmo.tgbotapi.types.queries.callback.DataCallbackQuery
-import dev.inmo.tgbotapi.utils.matrix
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import org.slf4j.LoggerFactory
@@ -118,53 +112,4 @@ class SubscribeCommandRegistration(
         subscriptionService.subscribe(chatId.chatId, pupilResponse.id, nextPreschools.map(Preschool::id).toSet())
         execute(SendTextMessage(chatId, "Успешно"))
     }
-
-    private suspend fun BehaviourContext.getAdministrativeOrganization(
-        text: String,
-        chatId: IdChatIdentifier,
-        organizations: Map<UUID, AdministrativeOrganization>,
-    ) = waitDataCallbackQuery(
-        SendTextMessage(
-            chatId, text, replyMarkup = InlineKeyboardMarkup(
-                matrix {
-                    organizations.values.map { organization ->
-                        CallbackDataInlineKeyboardButton(
-                            organization.territoryCaption,
-                            organization.id.toString()
-                        )
-                    }.forEach { button -> +button }
-                }
-            )
-        )
-    ).map { query -> organizations[UUID.fromString(query.data)] }.first()!!
-
-    private suspend fun BehaviourContext.getPreschool(
-        text: String,
-        chatId: IdChatIdentifier,
-        preschools: Map<UUID, Preschool>,
-        currentAdministrativeOrganization: AdministrativeOrganization,
-        vararg additionalButtons: String,
-    ): Flow<DataCallbackQuery> = waitDataCallbackQuery(
-        SendTextMessage(
-            chatId, text, replyMarkup = InlineKeyboardMarkup(
-                matrix {
-                    val buttons = additionalButtons.toList().map {
-                        CallbackDataInlineKeyboardButton(
-                            it,
-                            it
-                        )
-                    }
-                    preschools.values
-                        .filter { preschool -> preschool.administrativeOrganizationId == currentAdministrativeOrganization.id }
-                        .map { organization ->
-                            CallbackDataInlineKeyboardButton(
-                                organization.shortCaption,
-                                organization.id.toString()
-                            )
-                        }.plus(buttons)
-                        .forEach { button -> +button }
-                }
-            )
-        )
-    )
 }
